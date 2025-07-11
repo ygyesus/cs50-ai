@@ -204,59 +204,115 @@ class MinesweeperAI():
             5) add any new sentences to the AI's knowledge base
                if they can be inferred from existing knowledge
         """
+        '''
+        1
+        '''
         self.moves_made.add(cell)
+        
+        '''
+        2
+        '''
         self.mark_safe(cell)
-        # added_sentence = Sentence({cell}, count)
-        # self.knowledge.append(added_sentence)
+        added_sentence = Sentence({cell}, count)
+        self.knowledge.append(added_sentence)
 
         directions = [-1,0,1]
         row, col = cell
 
-        SET = set()
+        surroundingCells = set()
+
+        # all neighboring/surroundingCells collected
+        for row_d in directions: 
+            for col_d in directions:
+                if row_d == col_d == 0: continue
+                new_row, new_col = row+row_d, col+col_d
+                if not self.inbound(new_row, new_col): continue
+
+                surroundingCells.add((new_row, new_col))
+
         found = False
-        while True:
-            for row_d in directions:
-                for col_d in directions:
-                    if row_d==col_d==0: continue
-                    new_row, new_col = row+row_d, col+col_d
-                    if not self.inbound(new_row, new_col): continue
-                    if (new_row, new_col) in self.safes: continue
-                    if (new_row, new_col) in self.mines:
-                        count -= 1
-                        continue
+        for safe in self.safes:
+            if safe in surroundingCells:
+                surroundingCells.remove(safe)
+                found = True
+        
+        for mine in self.mines:
+            if mine in surroundingCells:
+                surroundingCells.remove(mine)
+                count -= 1
+                found = True
 
-                    SET.add((new_row, new_col))
-
-            for cell in self.safes:
-                if cell in SET:
-                    SET.remove(cell)
+        if count == 0:
+            for incomingSafe in surroundingCells:
+                self.mark_safe(incomingSafe)
+            surroundingCells = set()
                 
-            for cell in self.mines:
-                if cell in SET:
-                    SET.remove(cell)
-                    found = True
+        elif len(surroundingCells) == count:
+            for incomingMine in surroundingCells:
+                self.mark_mine(incomingMine)
+
+    # if surroundingCells:
+        newSentence = Sentence(surroundingCells, count)
+
+        for sentence in self.knowledge:
+            cells = {cell for cell in sentence.cells}
+            count = sentence.count
+            
+            for safe in self.safes:
+                if safe in cells:
+                    cells.remove(safe)
+
+            for mine in self.mines:
+                if mine in cells:
+                    cells.remove(mine)
                     count -= 1
-            
-            
-            if count==0:
-                found = True
-                for cell in SET:
-                    self.mark_safe(cell)
-            elif count==len(SET):
-                found = True
-                for cell in SET:
+
+            if len(cells) == count:
+                for cell in cells:
                     self.mark_mine(cell)
-            if not found: break
 
-            found = False
+            if count==0:
+                for cell in cells:
+                    self.mark_safe(cell)
+        self.knowledge.append(newSentence)
 
-                
-            sentence = Sentence(SET, count)
-            self.knowledge.append(sentence)
+        for x in self.knowledge:
+            for y in self.knowledge:
+                if x==y: continue
 
-            
-        # print(self.knowledge)
+                if x.cells<=y.cells:
+                    if x.count==y.count:
+                        SET = y.cells - x.cells
+
+                        for incomingSafe in SET:
+                            self.mark_safe(incomingSafe)
+
+                    # elif len(y.cells - x.cells) == y.count-x.count:
+                    #     for incomingMine in y.cells-x.cells:
+                    #         self.mark_mine(incomingMine)
+
+
+
+
+
+
+
+
+        
+
+
+        
+
+
+
+
+
+
+
+
+
         return
+
         raise NotImplementedError
 
     def make_safe_move(self):
@@ -271,7 +327,7 @@ class MinesweeperAI():
         for row in range(self.height):
             for col in range(self.width):
                 cell = (row, col)
-                if cell in self.mines and not (cell in self.moves_made): return cell
+                if cell in self.safes and not (cell in self.moves_made): return cell
         return
         raise NotImplementedError
 
@@ -282,5 +338,13 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
+
+        for row in range(self.height):
+            for col in range(self.width):
+                cell = (row, col)
+
+                if not cell in self.mines:
+                    if cell not in self.moves_made:
+                        return cell
         return
         raise NotImplementedError
